@@ -1,0 +1,118 @@
+mql5
+//+------------------------------------------------------------------+
+//|                                              Diamond Scalping MT4|
+//|                                   Developer: Forex Robot Easy Team|
+//|                                             Site: forexroboteasy.com|
+//+------------------------------------------------------------------+
+
+//+------------------------------------------------------------------+
+//|                                                                  |
+//|                                                                  |
+//|                           MAIN PROGRAM                            |
+//|                                                                  |
+//|                                                                  |
+//+------------------------------------------------------------------+
+void OnTick()
+{
+    // Market analysis tools to identify potential trading opportunities
+    double currentPrice = MarketInfo(Symbol(), MODE_BID);
+    double previousPrice = iClose(Symbol(), PERIOD_CURRENT, 1);
+
+    // Entry and exit signals for executing trades based on the algorithm
+    if (currentPrice > previousPrice)
+    {
+        // Place buy trade
+        PlaceTrade(OP_BUY);
+    }
+    else if (currentPrice < previousPrice)
+    {
+        // Place sell trade
+        PlaceTrade(OP_SELL);
+    }
+
+    // Real-time monitoring of trades and account balance
+    double accountBalance = AccountInfoDouble(ACCOUNT_BALANCE);
+    double equity = AccountInfoDouble(ACCOUNT_EQUITY);
+
+    // Trade execution and order management functions
+    ManageTrades();
+
+    // Print account information
+    Print('Account Balance: ', accountBalance);
+    Print('Equity: ', equity);
+}
+
+//+------------------------------------------------------------------+
+//|                                                                  |
+//|                                                                  |
+//|                          FUNCTION DEFINITIONS                     |
+//|                                                                  |
+//|                                                                  |
+//+------------------------------------------------------------------+
+void PlaceTrade(int tradeType)
+{
+    // Position sizing and risk management calculations
+    double lotSize = CalculateLotSize();
+
+    // Trade execution
+    int ticket = OrderSend(Symbol(), tradeType, lotSize, MarketInfo(Symbol(), MODE_ASK), 0, 0, 0, 'Diamond Scalping MT4', 0, 0, Green);
+
+    // Check for trade execution success
+    if (ticket > 0)
+    {
+        Print('Trade executed successfully. Ticket: ', ticket);
+    }
+    else
+    {
+        Print('Trade execution failed. Error code: ', GetLastError());
+    }
+}
+
+void ManageTrades()
+{
+    // Get total number of open orders
+    int totalOrders = OrdersTotal();
+
+    for (int i = totalOrders - 1; i >= 0; i--)
+    {
+        if (OrderSelect(i, SELECT_BY_POS, MODE_TRADES))
+        {
+            // Close open orders if necessary
+            if (OrderType() == OP_BUY)
+            {
+                if (OrderProfit() > 0)
+                {
+                    OrderClose(OrderTicket(), OrderLots(), MarketInfo(Symbol(), MODE_BID), 0, Green);
+                }
+                else if (OrderStopLoss() > 0 && MarketInfo(Symbol(), MODE_BID) < OrderStopLoss())
+                {
+                    OrderClose(OrderTicket(), OrderLots(), MarketInfo(Symbol(), MODE_BID), 0, Red);
+                }
+            }
+            else if (OrderType() == OP_SELL)
+            {
+                if (OrderProfit() > 0)
+                {
+                    OrderClose(OrderTicket(), OrderLots(), MarketInfo(Symbol(), MODE_ASK), 0, Green);
+                }
+                else if (OrderStopLoss() > 0 && MarketInfo(Symbol(), MODE_ASK) > OrderStopLoss())
+                {
+                    OrderClose(OrderTicket(), OrderLots(), MarketInfo(Symbol(), MODE_ASK), 0, Red);
+                }
+            }
+        }
+    }
+}
+
+double CalculateLotSize()
+{
+    // Calculate lot size based on risk level
+    double riskPercentage = 0.01;  // Default risk percentage
+    double accountBalance = AccountInfoDouble(ACCOUNT_BALANCE);
+    double accountEquity = AccountInfoDouble(ACCOUNT_EQUITY);
+
+    double maxRisk = accountBalance * riskPercentage;
+    double lotSize = NormalizeDouble(maxRisk / (SymbolInfoDouble(Symbol(), SYMBOL_ASK) - SymbolInfoDouble(Symbol(), SYMBOL_BID) * SymbolInfoDouble(Symbol(), SYMBOL_MARGINREQUIRED)), 2);
+
+    return lotSize;
+}
